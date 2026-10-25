@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NewsVocab rewards</title>
+<style>
+:root { --bg:#f3f5f7; --panel:#fff; --text:#1b2127; --muted:#5f6b76; --line:#dde2e7; --accent:#1f4e79; --ok:#17703f; --err:#b3261e; --warn:#8a5a00; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14181c; --panel:#1c2126; --text:#e8ecef; --muted:#9aa5af; --line:#2c333a; --accent:#7db3e3; --ok:#5fcf93; --err:#ff8a80; --warn:#e6b450; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+main { max-width:860px; margin:0 auto; padding:28px 16px 60px; }
+header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+h1 { margin:0; font-size:22px; letter-spacing:-.01em; }
+.sub { color:var(--muted); margin:0 0 18px; font-size:13px; }
+.bar { display:flex; gap:8px; margin-bottom:14px; }
+input[type=search] { flex:1; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--text); font:inherit; }
+button { font:inherit; cursor:pointer; border-radius:6px; padding:7px 14px; border:1px solid var(--line); background:var(--panel); color:var(--text); }
+button:focus-visible, input:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+.approve { background:var(--ok); border-color:var(--ok); color:#fff; font-weight:600; }
+.reject { color:var(--err); border-color:var(--err); background:transparent; }
+.reject.sure { background:var(--err); color:#fff; font-weight:600; }
+ul { list-style:none; margin:0; padding:0; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+li { display:grid; grid-template-columns:1fr auto; gap:6px 16px; padding:14px 16px; border-bottom:1px solid var(--line); }
+li:last-child { border-bottom:0; }
+.who { font-weight:600; word-break:break-all; }
+.what { color:var(--muted); font-size:13px; }
+.days { font-weight:700; color:var(--accent); }
+.proof { grid-column:1; margin-top:2px; padding:6px 10px; border-left:3px solid var(--accent); background:color-mix(in srgb, var(--accent) 8%, transparent); word-break:break-all; font-size:14px; }
+.proof .k { color:var(--muted); font-size:12px; display:block; }
+.actions { grid-column:2; grid-row:1 / span 2; display:flex; gap:8px; align-items:flex-start; }
+.note { padding:10px 12px; border-radius:6px; border:1px solid var(--line); margin-bottom:14px; font-size:14px; }
+.note.err { border-color:var(--err); color:var(--err); } .note.ok { border-color:var(--ok); color:var(--ok); }
+.empty { padding:36px 16px; text-align:center; color:var(--muted); }
+@media (max-width:560px) { li { grid-template-columns:1fr; } .actions { grid-column:1; grid-row:auto; } }
+@media (prefers-reduced-motion: no-preference) { li { transition: opacity .2s; } li.gone { opacity:.3; } }
+</style>
+</head>
+<body>
+<main>
+  <header><h1 id="title">Pending rewards</h1><span class="what"><span id="updated"></span> <button id="logout" type="button">Log out</button></span></header>
+  <p class="sub">Open each proof, then approve or reject the claim. Approving adds the days to the user's account. A rejected claim cannot be claimed again.</p>
+  <div id="note" class="note" hidden role="status"></div>
+  <div class="bar"><input id="q" type="search" placeholder="Filter by email, reward or proof" aria-label="Filter claims"><button id="refresh" type="button">Refresh</button></div>
+  <ul id="list" aria-live="polite"></ul>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let claims = [];
+  const key = (c) => c.email + "\n" + c.reward;
+
+  function note(text, kind) { const n = $("note"); n.textContent = text || ""; n.hidden = !text; n.className = "note " + (kind || ""); }
+  const ago = (iso) => { const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000); if (isNaN(s)) return ""; if (s < 3600) return Math.max(1, Math.round(s / 60)) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+  async function api(path, body) {
+    const res = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { location.reload(); return { ok: false, status: 401, data }; } // session expired: back to the login page
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function render() {
+    const needle = $("q").value.trim().toLowerCase();
+    const shown = claims.filter((c) => !needle || (c.email + " " + c.reward + " " + c.proof).toLowerCase().includes(needle));
+    $("title").textContent = claims.length ? claims.length + " pending " + (claims.length === 1 ? "reward" : "rewards") : "Pending rewards";
+    const ul = $("list"); ul.textContent = "";
+    if (!shown.length) { const li = el("li", "empty", claims.length ? "No claim matches this filter." : "Nothing is waiting. New claims appear here when users press “I have done it”."); li.style.display = "block"; ul.appendChild(li); return; }
+    for (const c of shown) ul.appendChild(row(c));
+  }
+
+  function row(c) {
+    const li = el("li"); li.dataset.k = key(c);
+    const info = el("div");
+    info.append(el("div", "who", c.email));
+    const what = el("div", "what"); what.append(c.reward + " · ", el("span", "days", "+" + c.days + " day" + (c.days === 1 ? "" : "s")), " · " + ago(c.created));
+    info.append(what); li.append(info);
+    const actions = el("div", "actions");
+    const approve = el("button", "approve", "Approve"), reject = el("button", "reject", "Reject");
+    approve.type = reject.type = "button";
+    approve.addEventListener("click", () => decide(c, true, li));
+    let armed = null;
+    reject.addEventListener("click", () => { // two steps: a rejection is final
+      if (!armed) { reject.textContent = "Confirm reject"; reject.classList.add("sure"); armed = setTimeout(() => { armed = null; reject.textContent = "Reject"; reject.classList.remove("sure"); }, 4000); return; }
+      clearTimeout(armed); decide(c, false, li);
+    });
+    actions.append(approve, reject); li.append(actions);
+    if (c.proof) {
+      const p = el("div", "proof"); p.append(el("span", "k", "Proof from the user"));
+      if (/^https:\/\/(www\.)?instagram\.com\//i.test(c.link || "")) { const a = el("a", "", c.proof); a.href = c.link; a.target = "_blank"; a.rel = "noopener noreferrer"; p.append(a); }
+      else p.append(document.createTextNode(c.proof));
+      li.append(p);
+    }
+    return li;
+  }
+
+  async function decide(c, approve, li) {
+    li.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    const r = await api("/api/decide", { email: c.email, reward: c.reward, approve });
+    const gone = r.ok || r.data.reason === "ALREADY_DECIDED" || r.data.reason === "NO_CLAIM";
+    if (r.ok) note((approve ? "Approved " : "Rejected ") + c.reward + " for " + c.email + (approve ? ": +" + c.days + " days added." : "."), "ok");
+    else if (r.data.reason === "ALREADY_DECIDED") note("That claim was already decided (" + (r.data.status || "done") + ").", "err");
+    else if (r.data.reason === "NO_CLAIM" || r.data.reason === "NO_ACCOUNT") note("That claim no longer exists.", "err");
+    else note(r.data.error || "Could not save the decision. Nothing was changed; try again.", "err");
+    if (gone) { li.classList.add("gone"); claims = claims.filter((x) => key(x) !== key(c)); setTimeout(render, 250); }
+    else li.querySelectorAll("button").forEach((b) => (b.disabled = false));
+  }
+
+  async function load(quiet) {
+    $("refresh").disabled = true;
+    const r = await api("/api/pending");
+    $("refresh").disabled = false;
+    if (!r.ok) { note(r.data.error || "Could not load the pending claims.", "err"); return; }
+    claims = (r.data.pending || []).slice().sort((a, b) => new Date(a.created) - new Date(b.created)); // oldest first
+    if (!quiet) note("");
+    $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+    render();
+  }
+
+  $("logout").addEventListener("click", async () => { await api("/api/logout", {}); location.reload(); });
+  $("refresh").addEventListener("click", () => load(false));
+  $("q").addEventListener("input", render);
+  setInterval(() => { if (!document.hidden && !document.querySelector(".reject.sure")) load(true); }, 30000);
+  load(false);
+})();
+</script>
+</body>
+</html>

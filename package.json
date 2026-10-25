@@ -1,0 +1,14 @@
+{
+  "name": "newsvocab-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local page to approve or reject pending NewsVocab reward claims",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node server/test-admin.js",
+    "test:deploy": "node server/test-deploy.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
