@@ -1,0 +1,9 @@
+.env
+.env.*
+node_modules
+.git
+server/test-admin.js
+server/test-deploy.js
+server/test-settings.js
+README.md
+Dockerfile

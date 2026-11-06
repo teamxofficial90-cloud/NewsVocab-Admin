@@ -1,0 +1,15 @@
+{
+  "name": "newsvocab-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NewsVocab admin: approve or reject reward claims and edit the popup settings",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node server/test-admin.js",
+    "test:deploy": "node server/test-deploy.js",
+    "test:settings": "node server/test-settings.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

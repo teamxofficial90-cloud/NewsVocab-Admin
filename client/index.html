@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NewsVocab admin</title>
+<style>
+:root { --bg:#f3f5f7; --panel:#fff; --text:#1b2127; --muted:#5f6b76; --line:#dde2e7; --accent:#1f4e79; --ok:#17703f; --err:#b3261e; --warn:#8a5a00; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14181c; --panel:#1c2126; --text:#e8ecef; --muted:#9aa5af; --line:#2c333a; --accent:#7db3e3; --ok:#5fcf93; --err:#ff8a80; --warn:#e6b450; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+main { max-width:860px; margin:0 auto; padding:28px 16px 60px; }
+header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+h1 { margin:0; font-size:22px; letter-spacing:-.01em; }
+.sub { color:var(--muted); margin:0 0 18px; font-size:13px; }
+.bar { display:flex; gap:8px; margin-bottom:14px; }
+input[type=search] { flex:1; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--text); font:inherit; }
+button { font:inherit; cursor:pointer; border-radius:6px; padding:7px 14px; border:1px solid var(--line); background:var(--panel); color:var(--text); }
+button:focus-visible, input:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+.approve { background:var(--ok); border-color:var(--ok); color:#fff; font-weight:600; }
+.reject { color:var(--err); border-color:var(--err); background:transparent; }
+.reject.sure { background:var(--err); color:#fff; font-weight:600; }
+ul { list-style:none; margin:0; padding:0; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+li { display:grid; grid-template-columns:1fr auto; gap:6px 16px; padding:14px 16px; border-bottom:1px solid var(--line); }
+li:last-child { border-bottom:0; }
+.who { font-weight:600; word-break:break-all; }
+.what { color:var(--muted); font-size:13px; }
+.days { font-weight:700; color:var(--accent); }
+.proof { grid-column:1; margin-top:2px; padding:6px 10px; border-left:3px solid var(--accent); background:color-mix(in srgb, var(--accent) 8%, transparent); word-break:break-all; font-size:14px; }
+.proof .k { color:var(--muted); font-size:12px; display:block; }
+.actions { grid-column:2; grid-row:1 / span 2; display:flex; gap:8px; align-items:flex-start; }
+.note { padding:10px 12px; border-radius:6px; border:1px solid var(--line); margin-bottom:14px; font-size:14px; }
+.note.err { border-color:var(--err); color:var(--err); } .note.ok { border-color:var(--ok); color:var(--ok); }
+.empty { padding:36px 16px; text-align:center; color:var(--muted); }
+@media (max-width:560px) { li { grid-template-columns:1fr; } .actions { grid-column:1; grid-row:auto; } }
+.tabs { display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--line); }
+.tabs button { border:0; border-bottom:3px solid transparent; border-radius:6px 6px 0 0; background:transparent; padding:8px 14px; color:var(--muted); }
+.tabs button[aria-selected=true] { color:var(--text); font-weight:600; border-bottom-color:var(--accent); }
+h2 { margin:0 0 4px; font-size:18px; } h3 { margin:22px 0 8px; font-size:15px; }
+fieldset { margin:0 0 16px; padding:14px 16px 6px; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+legend { padding:0 6px; font-weight:600; }
+.hint { margin:0 0 10px; color:var(--muted); font-size:13px; }
+.fgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:4px 14px; }
+.fgrid.one { grid-template-columns:1fr; }
+.field { margin-bottom:10px; }
+.field label { display:block; font-size:13px; color:var(--muted); margin-bottom:3px; }
+.field input { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font:inherit; }
+.field input[aria-invalid=true] { border-color:var(--err); }
+.ferr { color:var(--err); font-size:12px; min-height:0; }
+.sbar { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 0; }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 16px; }
+.pv { display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:14px; padding:4px 0; }
+.pv .k { color:var(--muted); font-size:12px; }
+.pv .btn { display:inline-block; padding:3px 10px; border-radius:6px; background:var(--accent); color:var(--bg); font-weight:600; }
+@media (max-width:560px) { .pv { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion: no-preference) { li { transition: opacity .2s; } li.gone { opacity:.3; } }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>NewsVocab admin</h1><span class="what"><span id="updated"></span> <button id="logout" type="button">Log out</button></span></header>
+  <nav class="tabs" role="tablist" aria-label="Admin sections">
+    <button id="tabBtnRewards" type="button" role="tab" aria-selected="true" aria-controls="tabRewards">Rewards</button>
+    <button id="tabBtnSettings" type="button" role="tab" aria-selected="false" aria-controls="tabSettings">Popup settings</button>
+  </nav>
+
+  <section id="tabRewards" role="tabpanel" aria-labelledby="tabBtnRewards">
+    <h2 id="title">Pending rewards</h2>
+    <p class="sub">Open each proof, then approve or reject the claim. Approving adds the days to the user's account. A rejected claim cannot be claimed again.</p>
+    <div id="note" class="note" hidden role="status"></div>
+    <div class="bar"><input id="q" type="search" placeholder="Filter by email, reward or proof" aria-label="Filter claims"><button id="refresh" type="button">Refresh</button></div>
+    <ul id="list" aria-live="polite"></ul>
+  </section>
+
+  <section id="tabSettings" role="tabpanel" aria-labelledby="tabBtnSettings" hidden>
+    <h2>Popup settings</h2>
+    <p class="sub">These values control what the NewsVocab popup shows. Users get the change the next time they open the popup.</p>
+    <div id="snote" class="note" hidden role="status"></div>
+    <form id="sform" novalidate></form>
+    <h3>Preview</h3>
+    <div id="spreview" class="panel" aria-live="polite"></div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let claims = [];
+  const key = (c) => c.email + "\n" + c.reward;
+
+  function note(text, kind) { const n = $("note"); n.textContent = text || ""; n.hidden = !text; n.className = "note " + (kind || ""); }
+  const ago = (iso) => { const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000); if (isNaN(s)) return ""; if (s < 3600) return Math.max(1, Math.round(s / 60)) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+  async function api(path, body) {
+    const res = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { location.reload(); return { ok: false, status: 401, data }; } // session expired: back to the login page
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function render() {
+    const needle = $("q").value.trim().toLowerCase();
+    const shown = claims.filter((c) => !needle || (c.email + " " + c.reward + " " + c.proof).toLowerCase().includes(needle));
+    $("title").textContent = claims.length ? claims.length + " pending " + (claims.length === 1 ? "reward" : "rewards") : "Pending rewards";
+    const ul = $("list"); ul.textContent = "";
+    if (!shown.length) { const li = el("li", "empty", claims.length ? "No claim matches this filter." : "Nothing is waiting. New claims appear here when users press “I have done it”."); li.style.display = "block"; ul.appendChild(li); return; }
+    for (const c of shown) ul.appendChild(row(c));
+  }
+
+  function row(c) {
+    const li = el("li"); li.dataset.k = key(c);
+    const info = el("div");
+    info.append(el("div", "who", c.email));
+    const what = el("div", "what"); what.append(c.reward + " · ", el("span", "days", "+" + c.days + " day" + (c.days === 1 ? "" : "s")), " · " + ago(c.created));
+    info.append(what); li.append(info);
+    const actions = el("div", "actions");
+    const approve = el("button", "approve", "Approve"), reject = el("button", "reject", "Reject");
+    approve.type = reject.type = "button";
+    approve.addEventListener("click", () => decide(c, true, li));
+    let armed = null;
+    reject.addEventListener("click", () => { // two steps: a rejection is final
+      if (!armed) { reject.textContent = "Confirm reject"; reject.classList.add("sure"); armed = setTimeout(() => { armed = null; reject.textContent = "Reject"; reject.classList.remove("sure"); }, 4000); return; }
+      clearTimeout(armed); decide(c, false, li);
+    });
+    actions.append(approve, reject); li.append(actions);
+    if (c.proof) {
+      const p = el("div", "proof"); p.append(el("span", "k", "Proof from the user"));
+      if (/^https:\/\/(www\.)?instagram\.com\//i.test(c.link || "")) { const a = el("a", "", c.proof); a.href = c.link; a.target = "_blank"; a.rel = "noopener noreferrer"; p.append(a); }
+      else p.append(document.createTextNode(c.proof));
+      li.append(p);
+    }
+    return li;
+  }
+
+  async function decide(c, approve, li) {
+    li.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    const r = await api("/api/decide", { email: c.email, reward: c.reward, approve });
+    const gone = r.ok || r.data.reason === "ALREADY_DECIDED" || r.data.reason === "NO_CLAIM";
+    if (r.ok) note((approve ? "Approved " : "Rejected ") + c.reward + " for " + c.email + (approve ? ": +" + c.days + " days added." : "."), "ok");
+    else if (r.data.reason === "ALREADY_DECIDED") note("That claim was already decided (" + (r.data.status || "done") + ").", "err");
+    else if (r.data.reason === "NO_CLAIM" || r.data.reason === "NO_ACCOUNT") note("That claim no longer exists.", "err");
+    else note(r.data.error || "Could not save the decision. Nothing was changed; try again.", "err");
+    if (gone) { li.classList.add("gone"); claims = claims.filter((x) => key(x) !== key(c)); setTimeout(render, 250); }
+    else li.querySelectorAll("button").forEach((b) => (b.disabled = false));
+  }
+
+  async function load(quiet) {
+    $("refresh").disabled = true;
+    const r = await api("/api/pending");
+    $("refresh").disabled = false;
+    if (!r.ok) { note(r.data.error || "Could not load the pending claims.", "err"); return; }
+    claims = (r.data.pending || []).slice().sort((a, b) => new Date(a.created) - new Date(b.created)); // oldest first
+    if (!quiet) note("");
+    $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+    render();
+  }
+
+  $("logout").addEventListener("click", async () => { await api("/api/logout", {}); location.reload(); });
+  $("refresh").addEventListener("click", () => load(false));
+  $("q").addEventListener("input", render);
+  setInterval(() => { if (!document.hidden && !$("tabRewards").hidden && !document.querySelector(".reject.sure")) load(true); }, 30000); // only while the Rewards tab is open
+  load(false);
+})();
+</script>
+<script>
+// Popup settings tab: tabs, form, preview and save. The server checks every value again and says exactly which field is wrong.
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const merge = (base, over) => { const out = clone(base); if (isObj(over)) for (const k of Object.keys(over)) out[k] = isObj(out[k]) && isObj(over[k]) ? merge(out[k], over[k]) : over[k]; return out; };
+  const getp = (o, p) => p.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
+  const setp = (o, p, v) => { const ks = p.split("."); let x = o; for (const k of ks.slice(0, -1)) x = x[k] = x[k] || {}; x[ks[ks.length - 1]] = v; };
+
+  // The popup's standard values (the same numbers as extension/settings.js). The backend can send its own "defaults", which win.
+  const BUILT_IN = {
+    wordLimit: { min: 1, max: 13, default: 10 }, freeWords: 3,
+    plans: { trial: { price: 1, days: 3 }, premium: { price: 14, days: 30 } },
+    texts: { tagline: "Learn vocabulary from the news you read", premiumButton: "Get Premium", trialButton: "Start {trialDays}-day trial for Rs. {trialPrice}",
+             premiumInfo: "Pay Rs. {premiumPrice} to get {premiumDays} days access",
+             trialInfo: "Pay Rs. {trialPrice} to get {trialDays} days access. After that, Premium is Rs. {premiumPrice} for {premiumDays} days." }
+  };
+  const PRICE_NOTE = "Display only. The amount charged is set on the Razorpay payment page and the days granted are set in the backend, so keep them in step.";
+  const GROUPS = [
+    { title: "Word limit", hint: "How many words a user can ask for in one go.", fields: [
+      { p: "wordLimit.min", label: "Smallest number", kind: "int", min: 1, max: 100 }, { p: "wordLimit.max", label: "Largest number", kind: "int", min: 1, max: 100 }, { p: "wordLimit.default", label: "Starting number", kind: "int", min: 1, max: 100 } ] },
+    { title: "Free plan", hint: "After a plan expires the user sees only the first words of each batch and downloads are locked.", fields: [{ p: "freeWords", label: "Words shown from each batch", kind: "int", min: 0, max: 100 }] },
+    { title: "Trial plan (paid, once per account)", hint: PRICE_NOTE, fields: [{ p: "plans.trial.price", label: "Price shown (Rs.)", kind: "money" }, { p: "plans.trial.days", label: "Days shown", kind: "int", min: 1, max: 3650 }] },
+    { title: "Premium plan", hint: PRICE_NOTE, fields: [{ p: "plans.premium.price", label: "Price shown (Rs.)", kind: "money" }, { p: "plans.premium.days", label: "Days shown", kind: "int", min: 1, max: 3650 }] },
+    { title: "Popup texts", one: true, hint: "Leave a box empty to use the standard text (shown in grey). You can use {trialDays} {trialPrice} {premiumDays} {premiumPrice} {freeWords} {minLimit} {maxLimit}.", fields: [
+      { p: "texts.tagline", label: "Tagline under the title", kind: "text" }, { p: "texts.premiumButton", label: "Premium button", kind: "text" }, { p: "texts.trialButton", label: "Trial button", kind: "text" },
+      { p: "texts.premiumInfo", label: "Text under the Premium button", kind: "text" }, { p: "texts.trialInfo", label: "Text under the trial button", kind: "text" } ] }
+  ];
+  const inputs = {}; let defaults = clone(BUILT_IN), canSave = false, loaded = false, busy = false;
+
+  function note(text, kind) { const n = $("snote"); n.textContent = text || ""; n.hidden = !text; n.className = "note " + (kind || ""); }
+  async function api(path, body) {
+    const res = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { location.reload(); return { ok: false, status: 401, data }; } // session expired: back to the login page
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function build() {
+    const form = $("sform"); form.textContent = "";
+    for (const g of GROUPS) {
+      const fs = el("fieldset"); fs.append(el("legend", "", g.title)); if (g.hint) fs.append(el("p", "hint", g.hint));
+      const grid = el("div", g.one ? "fgrid one" : "fgrid");
+      for (const f of g.fields) {
+        const id = "f_" + f.p.replace(/\./g, "_"), wrap = el("div", "field"), lab = el("label", "", f.label), inp = el("input"), err = el("div", "ferr");
+        lab.htmlFor = id; inp.id = id; err.id = id + "_e"; inp.setAttribute("aria-describedby", err.id); inp.autocomplete = "off";
+        if (f.kind === "text") { inp.type = "text"; inp.maxLength = 300; inp.placeholder = getp(defaults, f.p); }
+        else { inp.type = "number"; inp.step = f.kind === "money" ? "0.01" : "1"; inp.min = f.min === undefined ? 0 : f.min; if (f.max !== undefined) inp.max = f.max; inp.inputMode = "decimal"; }
+        inp.addEventListener("input", () => { inp.removeAttribute("aria-invalid"); err.textContent = ""; preview(); });
+        inputs[f.p] = { inp, err, f }; wrap.append(lab, inp, err); grid.append(wrap);
+      }
+      fs.append(grid); form.append(fs);
+    }
+    const bar = el("div", "sbar");
+    const save = el("button", "approve", "Save settings"); save.id = "ssave"; save.type = "submit";
+    const std = el("button", "", "Fill with standard values"); std.type = "button"; std.addEventListener("click", () => { fill(defaults); note("Standard values filled in. Press Save to use them.", ""); });
+    const rl = el("button", "", "Reload saved values"); rl.type = "button"; rl.addEventListener("click", () => load());
+    bar.append(save, std, rl); form.append(bar);
+    form.addEventListener("submit", (e) => { e.preventDefault(); save_(); });
+  }
+
+  function fill(s) {
+    for (const k of Object.keys(inputs)) {
+      const { inp, f } = inputs[k], v = getp(s, k);
+      if (f.kind === "text") { inp.value = typeof v === "string" && v !== getp(defaults, k) ? v : ""; inp.placeholder = getp(defaults, k); }
+      else inp.value = v === undefined || v === null ? getp(defaults, k) : v;
+      inp.removeAttribute("aria-invalid"); inputs[k].err.textContent = "";
+    }
+    preview();
+  }
+  function read() {
+    const s = {};
+    for (const k of Object.keys(inputs)) { const { inp, f } = inputs[k]; setp(s, k, f.kind === "text" ? inp.value : (inp.value.trim() === "" ? "" : Number(inp.value))); }
+    return s;
+  }
+
+  // What the popup will show, built from the numbers and texts in the form (a blank or invalid box counts as the standard value).
+  function preview() {
+    const val = (k) => { const { inp, f } = inputs[k]; const raw = inp.value.trim(), n = Number(raw); return f.kind === "text" ? (raw || getp(defaults, k)) : (raw !== "" && Number.isFinite(n) ? n : getp(defaults, k)); };
+    const v = { trialDays: val("plans.trial.days"), trialPrice: val("plans.trial.price"), premiumDays: val("plans.premium.days"), premiumPrice: val("plans.premium.price"), freeWords: val("freeWords"), minLimit: val("wordLimit.min"), maxLimit: val("wordLimit.max") };
+    const fmt = (t) => String(t).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+    const box = $("spreview"); box.textContent = "";
+    const row = (k, node) => { const r = el("div", "pv"); r.append(el("span", "k", k), node); box.append(r); };
+    row("Tagline", el("span", "", fmt(val("texts.tagline"))));
+    row("Word limit", el("span", "", v.minLimit + "–" + v.maxLimit + " (starts at " + val("wordLimit.default") + ")"));
+    row("Free plan", el("span", "", "First " + v.freeWords + (v.freeWords === 1 ? " word" : " words") + " of each batch are shown"));
+    const part = (btn, info) => { const d = el("div"); d.append(el("span", "btn", fmt(val(btn))), el("div", "what", fmt(val(info)))); return d; };
+    row("New account", part("texts.trialButton", "texts.trialInfo"));
+    row("After the trial", part("texts.premiumButton", "texts.premiumInfo"));
+  }
+
+  function setBusy(b) { busy = b; const s = $("ssave"); if (s) s.disabled = b || !canSave; }
+
+  async function load() {
+    note(""); setBusy(true);
+    const r = await api("/api/settings");
+    if (r.ok && isObj(r.data) && isObj(r.data.settings)) {
+      canSave = true; defaults = merge(BUILT_IN, r.data.defaults);
+      fill(merge(defaults, r.data.settings));
+      if (r.data.updated && !isNaN(new Date(r.data.updated))) note("Last saved " + new Date(r.data.updated).toLocaleString() + ".", "");
+    } else {
+      canSave = false; defaults = clone(BUILT_IN); fill(defaults);
+      note((r.data && r.data.error ? r.data.error : "Could not load the settings.") + (r.data && r.data.reason === "NO_ENDPOINT" ? " Showing the standard values; Save is off until the backend is updated." : ""), "err");
+    }
+    setBusy(false);
+  }
+
+  async function save_() {
+    if (!canSave || busy) return;
+    for (const k of Object.keys(inputs)) { inputs[k].inp.removeAttribute("aria-invalid"); inputs[k].err.textContent = ""; }
+    note(""); setBusy(true);
+    const r = await api("/api/settings", { settings: read() });
+    setBusy(false);
+    if (r.ok) {
+      if (isObj(r.data) && isObj(r.data.settings)) { if (isObj(r.data.defaults)) defaults = merge(BUILT_IN, r.data.defaults); fill(merge(defaults, r.data.settings)); }
+      note("Saved at " + new Date().toLocaleTimeString() + ". Users see the new values the next time they open the popup.", "ok"); return;
+    }
+    const errs = Array.isArray(r.data.errors) ? r.data.errors : [];
+    let first = null;
+    for (const e of errs) { const x = inputs[e.field]; if (x) { x.inp.setAttribute("aria-invalid", "true"); x.err.textContent = e.message; first = first || x.inp; } }
+    note(r.data.error || "Could not save the settings. Nothing was changed; try again.", "err");
+    if (first) first.focus();
+  }
+
+  function show(tab) {
+    const settings = tab === "settings";
+    $("tabRewards").hidden = settings; $("tabSettings").hidden = !settings;
+    $("tabBtnRewards").setAttribute("aria-selected", String(!settings)); $("tabBtnSettings").setAttribute("aria-selected", String(settings));
+    try { history.replaceState(null, "", settings ? "#settings" : location.pathname + location.search); } catch (e) { /* not important */ }
+    if (settings && !loaded) { loaded = true; load(); }
+  }
+  $("tabBtnRewards").addEventListener("click", () => show("rewards"));
+  $("tabBtnSettings").addEventListener("click", () => show("settings"));
+  build(); fill(defaults); setBusy(false);
+  show(location.hash === "#settings" ? "settings" : "rewards");
+})();
+</script>
+</body>
+</html>
